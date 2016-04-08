@@ -93,41 +93,7 @@ namespace domi1819.UniType
            
             if (e.KeyChar != '\b')
             {
-                if (this.uiInputTextBox.Text.Length >= 6)
-                {
-                    e.Handled = true;
-                    return;
-                }
-
-                switch (e.KeyChar)
-                {
-                    case '0':
-                    case '1':
-                    case '2':
-                    case '3':
-                    case '4':
-                    case '5':
-                    case '6':
-                    case '7':
-                    case '8':
-                    case '9':
-                    case 'a':
-                    case 'b':
-                    case 'c':
-                    case 'd':
-                    case 'e':
-                    case 'f':
-                    case 'A':
-                    case 'B':
-                    case 'C':
-                    case 'D':
-                    case 'E':
-                    case 'F':
-                        break;
-                    default:
-                        e.Handled = true;
-                        break;
-                }
+                e.Handled = this.uiInputTextBox.Text.Length >= 6 || !(e.KeyChar >= '0' && e.KeyChar <= '9' || e.KeyChar >= 'a' && e.KeyChar <= 'f' || e.KeyChar >= 'A' && e.KeyChar <= 'F');
             }
         }
 
