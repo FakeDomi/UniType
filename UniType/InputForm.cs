@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace domi1819.UniType
@@ -9,6 +12,9 @@ namespace domi1819.UniType
     public partial class InputForm : Form
     {
         private bool focusHack;
+        private InputMode inputMode;
+
+        private readonly Dictionary<string, string> katakanaMapping = new Dictionary<string, string>(); 
 
         public InputForm()
         {
@@ -22,6 +28,19 @@ namespace domi1819.UniType
             this.uiInputTextBox.KeyPress += this.HandleTextBoxKeyPress;
 
             RegisterHotKey(this.Handle, 0, 0x0001, (uint) Keys.Add);
+
+            using (StreamReader reader = new StreamReader("katakana.txt"))
+            {
+                while (!reader.EndOfStream)
+                {
+                    string[] line = (reader.ReadLine() ?? "").Split('=');
+
+                    if (line.Length == 2)
+                    {
+                        this.katakanaMapping.Add(line[0], line[1]);
+                    }
+                }
+            }
         }
 
         protected override void OnShown(EventArgs e)
@@ -55,7 +74,17 @@ namespace domi1819.UniType
 
             try
             {
-                this.uiPreviewLabel.Text = char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber));
+                if (this.inputMode == InputMode.Unicode)
+                {
+                    this.uiPreviewLabel.Text = char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber));
+                }
+                else if (this.inputMode == InputMode.Katakana)
+                {
+                    if (this.katakanaMapping.ContainsKey(this.uiInputTextBox.Text))
+                    {
+                        this.uiPreviewLabel.Text = this.katakanaMapping[this.uiInputTextBox.Text];
+                    }
+                }
             }
             catch (Exception)
             {
@@ -73,13 +102,50 @@ namespace domi1819.UniType
 
         private void HandleTextBoxKeyPress(object sender, KeyPressEventArgs e)
         {
-            if (e.KeyChar == (char) Keys.Enter)
+            if (e.KeyChar == '+')
+            {
+                if (this.inputMode == InputMode.Unicode)
+                {
+                    this.inputMode = InputMode.Katakana;
+                    this.uiUnicodePlusLabel.Text = @"Ka";
+                }
+                else if (this.inputMode == InputMode.Katakana)
+                {
+                    this.inputMode = InputMode.Unicode;
+                    this.uiUnicodePlusLabel.Text = @"U+";
+                }
+
+                this.uiInputTextBox.Text = "";
+
+                e.Handled = true;
+                return;
+            }
+
+            if (e.KeyChar == (char)Keys.Enter)
             {
                 this.Hide();
 
                 try
                 {
-                    SendUnicodeText(char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber)));
+                    if (this.inputMode == InputMode.Unicode)
+                    {
+                        SendUnicodeText(char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber)));
+                    }
+                    else if (this.inputMode == InputMode.Katakana)
+                    {
+                        if (this.katakanaMapping.ContainsKey(this.uiInputTextBox.Text))
+                        {
+                            SendUnicodeText(this.katakanaMapping[this.uiInputTextBox.Text]);
+                        }
+
+                        Thread.Sleep(150);
+
+                        this.focusHack = true;
+                        this.Show();
+                        this.Activate();
+                        this.uiInputTextBox.Text = "";
+                        this.focusHack = false;
+                    }
                 }
                 catch (Exception)
                 {
@@ -91,7 +157,7 @@ namespace domi1819.UniType
                 this.Hide();
             }
            
-            if (e.KeyChar != '\b')
+            if (e.KeyChar != '\b' && this.inputMode == InputMode.Unicode)
             {
                 e.Handled = this.uiInputTextBox.Text.Length >= 6 || !(e.KeyChar >= '0' && e.KeyChar <= '9' || e.KeyChar >= 'a' && e.KeyChar <= 'f' || e.KeyChar >= 'A' && e.KeyChar <= 'F');
             }
@@ -132,5 +198,10 @@ namespace domi1819.UniType
 
         [DllImport("user32")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        private enum InputMode
+        {
+            Unicode, Katakana
+        }
     }
 }
