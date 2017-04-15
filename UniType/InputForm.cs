@@ -1,140 +1,203 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows.Forms;
 
 namespace domi1819.UniType
 {
     public partial class InputForm : Form
     {
-        private bool focusHack;
+        private readonly KeyboardHook hook = new KeyboardHook();
+
+        private string inputText = string.Empty;
         private InputMode inputMode;
 
-        private readonly Dictionary<string, string> katakanaMapping = new Dictionary<string, string>();
+        protected override bool ShowWithoutActivation => true;
 
-        private static string katakana = @"a=ア
-i=イ
-u=ウ
-e=エ
-o=オ
-ka=カ
-ki=キ
-ku=ク
-ke=ケ
-ko=コ
-sa=サ
-shi=シ
-su=ス
-se=セ
-so=ソ
-ta=タ
-chiチ
-tsu=ツ
-te=テ
-to=ト
-na=ナ
-ni=ニ
-nu=ヌ
-ne=ネ
-no=ノ
-ha=ハ
-hi=ヒ
-fu=フ
-he=ヘ
-ho=ホ
-ma=マ
-mi=ミ
-mu=ム
-me=メ
-mo=モ
-ya=ヤ
-yu=ユ
-yo=ヨ
-ra=ラ
-ri=リ
-ru=ル
-re=レ
-ro=ロ
-wa=ワ
-wi=ヰ
-we=ヱ
-wo=ヲ
-ga=ガ
-gi=ギ
-gu=グ
-ge=ゲ
-go=ゴ
-za=ザ
-ji=ジ
-zu=ズ
-ze=ゼ
-zo=ゾ
-da=ダ
-di=ヂ
-du=ヅ
-de=デ
-do=ド
-ba=バ
-bi=ビ
-bu=ブ
-be=ベ
-bo=ボ
-pa=パ
-pi=ピ
-pu=プ
-pe=ペ
-po=ポ
-n=ン
--=ー
-.=・
- =・";
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                CreateParams createParams = base.CreateParams;
+                createParams.ExStyle |= 0x0008; // WS_EX_TOPMOST
+
+                return createParams;
+            }
+        }
 
         public InputForm()
         {
             this.InitializeComponent();
+
+            this.Location = new Point(Screen.PrimaryScreen.WorkingArea.Right - 8 - this.Width, Screen.PrimaryScreen.WorkingArea.Bottom - 8 - this.Height);
             
-            this.Location = new Point(
-            Screen.PrimaryScreen.WorkingArea.Right - 8 - this.Width, Screen.PrimaryScreen.WorkingArea.Bottom - 8 - this.Height);
+            this.hook.OnKeyPress = this.HookKeyPress;
+            this.hook.Install();
 
-            this.uiInputTextBox.TextChanged += this.HandleTextBoxTextChanged;
-            this.uiInputTextBox.LostFocus += this.HandleTextBoxLostFocus;
-            this.uiInputTextBox.KeyPress += this.HandleTextBoxKeyPress;
+            RegisterHotKey(this.Handle, 0, 0x01, Keys.Add);
+        }
 
-            RegisterHotKey(this.Handle, 0, 0x0001, (uint) Keys.Add);
-
-            //using (StreamReader reader = new StreamReader("katakana.txt"))
-            //{
-            //    while (!reader.EndOfStream)
-            //    {
-            //        string[] line = (reader.ReadLine() ?? "").Split('=');
-
-            //        if (line.Length == 2)
-            //        {
-            //            this.katakanaMapping.Add(line[0], line[1]);
-            //        }
-            //    }
-            //}
-
-            string[] split = katakana.Split('\n');
-
-            foreach (var element in split)
+        private bool HookKeyPress(Keys key)
+        {
+            switch (key)
             {
-                string[] line = element.Split('=');
-
-                if (line.Length == 2)
+                case Keys.Add:
                 {
-                    this.katakanaMapping.Add(line[0], line[1]);
+                    if (this.inputMode == InputMode.Unicode)
+                    {
+                        this.inputMode = InputMode.Katakana;
+                        this.modeLabel.Text = @"Ka";
+                    }
+                    else if (this.inputMode == InputMode.Katakana)
+                    {
+                        this.inputMode = InputMode.Unicode;
+                        this.modeLabel.Text = @"U+";
+                    }
+
+                    this.inputLabel.Text = "";
+
+                    this.RefreshPreview();
+
+                    break;
                 }
+                case Keys.Escape:
+                {
+                    this.Hide();
+                    this.hook.Active = false;
+
+                    this.inputText = "";
+
+                    this.RefreshPreview();
+
+                    break;
+                }
+                case Keys.Back:
+                {
+                    if (this.inputText.Length > 0)
+                    {
+                        this.inputText = this.inputText.Substring(0, this.inputText.Length - 1);
+                    }
+
+                    this.RefreshPreview();
+
+                    break;
+                }
+                case Keys.Enter:
+                {
+                    try
+                    {
+                        this.hook.Active = false;
+
+                        if (this.inputMode == InputMode.Unicode)
+                        {
+                            string unicodeText = char.ConvertFromUtf32(int.Parse(this.inputText, NumberStyles.HexNumber));
+
+                            SendUnicodeChar(unicodeText[0], unicodeText.Length > 1 ? (char?)unicodeText[1] : null);
+                        }
+                        else if (this.inputMode == InputMode.Katakana)
+                        {
+                            if (KatakanaMapping.Mapping.TryGetValue(this.inputText, out char character))
+                            {
+                                SendUnicodeChar(character);
+                            }
+                        }
+                    }
+                    catch (IndexOutOfRangeException)
+                    {
+                        // Whatever
+                    }
+                    catch (FormatException)
+                    {
+                        // Whatever
+                    }
+
+                    this.hook.Active = true;
+                    this.inputText = "";
+                    this.RefreshPreview();
+
+                    break;
+                }
+                default:
+                {
+                    int input = (int)key;
+
+                    if (input >= 96 && input <= 105)
+                    {
+                        input -= 48;
+                    }
+
+                    if (input >= 65 && input <= 90)
+                    {
+                        input += 32;
+                    }
+
+                    if (this.inputMode == InputMode.Unicode)
+                    {
+                        if (input >= 48 && input <= 57 || input >= 97 && input <= 102)
+                        {
+                            this.AppendInput((char)input);
+                        }
+                    }
+                    else if (this.inputMode == InputMode.Katakana)
+                    {
+                        if (input >= 48 && input <= 57 || input >= 97 && input <= 122)
+                        {
+                            this.AppendInput((char)input);
+                        }
+                    }
+
+                    break;
+                }
+            }
+
+            return true;
+        }
+
+        private void RefreshPreview()
+        {
+            this.previewLabel.Text = "";
+            this.inputLabel.Text = this.inputText;
+
+            try
+            {
+                if (this.inputMode == InputMode.Unicode)
+                {
+                    this.previewLabel.Text = char.ConvertFromUtf32(int.Parse(this.inputText, NumberStyles.HexNumber));
+                }
+                else if (this.inputMode == InputMode.Katakana)
+                {
+                    if (KatakanaMapping.Mapping.TryGetValue(this.inputText, out char character))
+                    {
+                        this.previewLabel.Text = character.ToString();
+                    }
+                }
+            }
+            catch (IndexOutOfRangeException)
+            {
+                // Whatever
+            }
+            catch (FormatException)
+            {
+                // Whatever
             }
         }
 
-        protected override void OnShown(EventArgs e)
+        private void AppendInput(char c)
         {
-            this.Hide();
+            if (this.inputText.Length < 6)
+            {
+                this.inputText += c;
+            }
+
+            this.RefreshPreview();
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+
+            this.hook.Uninstall();
         }
 
         protected override void WndProc(ref Message m)
@@ -143,12 +206,14 @@ n=ン
             {
                 if (!this.Visible)
                 {
-                    this.focusHack = true;
                     this.Show();
-                    this.Activate();
-                    this.uiInputTextBox.Text = "";
-                    this.focusHack = false;
+                    this.hook.Active = true;
                 }
+            }
+
+            if (m.Msg == 0x0086) // WM_NCACTIVATE
+            {
+                m.WParam = new IntPtr(0x00); // FALSE
             }
 
             if (m.Msg != 0x0084) // WM_NCHITTEST
@@ -157,116 +222,24 @@ n=ン
             }
         }
 
-        private void HandleTextBoxTextChanged(object sender, EventArgs e)
+        private static void SendUnicodeChar(char inputChar, char? surrogateChar = null)
         {
-            this.uiPreviewLabel.Text = "";
+            KeyboardInput input = new KeyboardInput { Type = 1, Vk = 0, Scan = inputChar, Time = 0, Flags = 0x0004, ExtraInfo = 0 };
+            KeyboardInput[] inputs = surrogateChar == null ? new[] { input } : new[] { input, new KeyboardInput { Type = 1, Vk = 0, Scan = surrogateChar.Value, Time = 0, Flags = 0x0004, ExtraInfo = 0 } };
 
-            try
-            {
-                if (this.inputMode == InputMode.Unicode)
-                {
-                    this.uiPreviewLabel.Text = char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber));
-                }
-                else if (this.inputMode == InputMode.Katakana)
-                {
-                    if (this.katakanaMapping.ContainsKey(this.uiInputTextBox.Text))
-                    {
-                        this.uiPreviewLabel.Text = this.katakanaMapping[this.uiInputTextBox.Text];
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Ignored
-            }
+            SendInput(inputs.Length, inputs, Marshal.SizeOf(typeof(KeyboardInput)));
         }
 
-        private void HandleTextBoxLostFocus(object sender, EventArgs e)
+        [DllImport("user32.dll")]
+        private static extern uint SendInput(int numberOfInputs, KeyboardInput[] input, int sizeOfInputStructure);
+
+        [DllImport("user32.dll")]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, Keys vk);
+
+        [StructLayout(LayoutKind.Sequential, Size = 28)] // 8 unused bytes
+        private struct KeyboardInput
         {
-            if (!this.focusHack)
-            {
-                this.Hide();
-            }
-        }
-
-        private void HandleTextBoxKeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (e.KeyChar == '+')
-            {
-                if (this.inputMode == InputMode.Unicode)
-                {
-                    this.inputMode = InputMode.Katakana;
-                    this.uiUnicodePlusLabel.Text = @"Ka";
-                }
-                else if (this.inputMode == InputMode.Katakana)
-                {
-                    this.inputMode = InputMode.Unicode;
-                    this.uiUnicodePlusLabel.Text = @"U+";
-                }
-
-                this.uiInputTextBox.Text = "";
-
-                e.Handled = true;
-                return;
-            }
-
-            if (e.KeyChar == (char)Keys.Enter)
-            {
-                this.Hide();
-
-                try
-                {
-                    if (this.inputMode == InputMode.Unicode)
-                    {
-                        SendUnicodeText(char.ConvertFromUtf32(int.Parse(this.uiInputTextBox.Text, NumberStyles.HexNumber)));
-                    }
-                    else if (this.inputMode == InputMode.Katakana)
-                    {
-                        if (this.katakanaMapping.ContainsKey(this.uiInputTextBox.Text))
-                        {
-                            SendUnicodeText(this.katakanaMapping[this.uiInputTextBox.Text]);
-                        }
-
-                        Thread.Sleep(150);
-
-                        this.focusHack = true;
-                        this.Show();
-                        this.Activate();
-                        this.uiInputTextBox.Text = "";
-                        this.focusHack = false;
-                    }
-                }
-                catch (Exception)
-                {
-                    // Ignored
-                }
-            }
-            else if (e.KeyChar == (char) Keys.Escape)
-            {
-                this.Hide();
-            }
-           
-            if (e.KeyChar != '\b' && this.inputMode == InputMode.Unicode)
-            {
-                e.Handled = this.uiInputTextBox.Text.Length >= 6 || !(e.KeyChar >= '0' && e.KeyChar <= '9' || e.KeyChar >= 'a' && e.KeyChar <= 'f' || e.KeyChar >= 'A' && e.KeyChar <= 'F');
-            }
-        }
-
-        private static void SendUnicodeText(string text)
-        {
-            foreach (char utf16Char in text)
-            {
-                INPUT keyInput = new INPUT { Type = 1, ki = { Vk = 0, Scan = utf16Char, Time = 0, Flags = 0x0004, ExtraInfo = 0 } };
-                INPUT[] input = { keyInput, keyInput };
-
-                SendInput(1, input, Marshal.SizeOf(typeof(INPUT)));
-            }
-        }
-
-        [StructLayout(LayoutKind.Sequential, Size = 24)]
-        // ReSharper disable once InconsistentNaming
-        private struct KEYBDINPUT
-        {
+            internal uint Type;
             internal ushort Vk;
             internal ushort Scan;
             internal uint Flags;
@@ -274,23 +247,10 @@ n=ン
             internal uint ExtraInfo;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        // ReSharper disable once InconsistentNaming
-        private struct INPUT
-        {
-            internal int Type;
-            internal KEYBDINPUT ki;
-        }
-
-        [DllImport("user32", CharSet = CharSet.Unicode)]
-        private static extern uint SendInput(uint numberOfInputs, INPUT[] input, int sizeOfInputStructure);
-
-        [DllImport("user32")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
         private enum InputMode
         {
-            Unicode, Katakana
+            Unicode,
+            Katakana
         }
     }
 }
