@@ -103,7 +103,7 @@ namespace domi1819.UniType
                             }
                         }
                     }
-                    catch (IndexOutOfRangeException)
+                    catch (ArgumentOutOfRangeException)
                     {
                         // Whatever
                     }
@@ -173,7 +173,7 @@ namespace domi1819.UniType
                     }
                 }
             }
-            catch (IndexOutOfRangeException)
+            catch (ArgumentOutOfRangeException)
             {
                 // Whatever
             }
