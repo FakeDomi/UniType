@@ -2,21 +2,20 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using static domi1819.UniType.WinConsts;
 
 namespace domi1819.UniType
 {
     internal class KeyboardHook
     {
-        internal bool Active { get; set; }
+        internal bool Active { private get; set; }
 
         internal KeyPressCallback OnKeyPress { private get; set; }
 
         internal delegate bool KeyPressCallback(Keys key);
 
-        private readonly KeyboardHookProc proc;
+        private readonly User32.KeyboardHookProc proc;
         private IntPtr hookId;
-
-        private delegate IntPtr KeyboardHookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
         internal KeyboardHook()
         {
@@ -28,13 +27,13 @@ namespace domi1819.UniType
             using (Process process = Process.GetCurrentProcess())
             using (ProcessModule module = process.MainModule)
             {
-                this.hookId = SetWindowsHookEx(0x0D, this.proc, GetModuleHandle(module.ModuleName), 0);
+                this.hookId = User32.SetWindowsHookEx(WH_KEYBOARD_LL, this.proc, User32.GetModuleHandle(module.ModuleName), 0);
             }
         }
 
         internal void Uninstall()
         {
-            UnhookWindowsHookEx(this.hookId);
+            User32.UnhookWindowsHookEx(this.hookId);
         }
 
         private IntPtr KeyboardCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -43,22 +42,10 @@ namespace domi1819.UniType
 
             if (!this.Active || wParam.ToInt32() != 0x0100 || this.OnKeyPress == null)
             {
-                return CallNextHookEx(this.hookId, nCode, wParam, lParam);
+                return User32.CallNextHookEx(this.hookId, nCode, wParam, lParam);
             }
 
-            return this.OnKeyPress.Invoke(key) ? new IntPtr(-1) : CallNextHookEx(this.hookId, nCode, wParam, lParam);
+            return this.OnKeyPress.Invoke(key) ? new IntPtr(-1) : User32.CallNextHookEx(this.hookId, nCode, wParam, lParam);
         }
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr SetWindowsHookEx(int idHook, KeyboardHookProc lpfn, IntPtr hMod, uint dwThreadId);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr UnhookWindowsHookEx(IntPtr hhk);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetModuleHandle(string lpModuleName);
     }
 }

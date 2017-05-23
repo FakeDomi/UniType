@@ -35,18 +35,20 @@
             // 
             // previewLabel
             // 
-            this.previewLabel.BackColor = System.Drawing.SystemColors.ControlLightLight;
-            this.previewLabel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.previewLabel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(38)))));
             this.previewLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 18F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.previewLabel.Location = new System.Drawing.Point(1, 1);
+            this.previewLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(241)))), ((int)(((byte)(241)))));
+            this.previewLabel.Location = new System.Drawing.Point(2, 2);
             this.previewLabel.Name = "previewLabel";
-            this.previewLabel.Size = new System.Drawing.Size(82, 45);
+            this.previewLabel.Size = new System.Drawing.Size(80, 45);
             this.previewLabel.TabIndex = 0;
             this.previewLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.previewLabel.Paint += new System.Windows.Forms.PaintEventHandler(this.LabelsPaint);
             // 
             // modeLabel
             // 
-            this.modeLabel.Location = new System.Drawing.Point(2, 47);
+            this.modeLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(241)))), ((int)(((byte)(241)))));
+            this.modeLabel.Location = new System.Drawing.Point(2, 46);
             this.modeLabel.Name = "modeLabel";
             this.modeLabel.Size = new System.Drawing.Size(22, 15);
             this.modeLabel.TabIndex = 1;
@@ -55,23 +57,25 @@
             // 
             // inputLabel
             // 
-            this.inputLabel.BackColor = System.Drawing.SystemColors.ControlLightLight;
-            this.inputLabel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.inputLabel.Location = new System.Drawing.Point(23, 47);
+            this.inputLabel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(37)))), ((int)(((byte)(37)))), ((int)(((byte)(38)))));
+            this.inputLabel.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(241)))), ((int)(((byte)(241)))), ((int)(((byte)(241)))));
+            this.inputLabel.Location = new System.Drawing.Point(23, 46);
             this.inputLabel.Name = "inputLabel";
-            this.inputLabel.Size = new System.Drawing.Size(60, 16);
+            this.inputLabel.Size = new System.Drawing.Size(59, 16);
             this.inputLabel.TabIndex = 1;
-            this.inputLabel.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
+            this.inputLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.inputLabel.Paint += new System.Windows.Forms.PaintEventHandler(this.LabelsPaint);
             // 
             // InputForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
             this.ClientSize = new System.Drawing.Size(84, 64);
             this.ControlBox = false;
+            this.Controls.Add(this.previewLabel);
             this.Controls.Add(this.inputLabel);
             this.Controls.Add(this.modeLabel);
-            this.Controls.Add(this.previewLabel);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.SizableToolWindow;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
