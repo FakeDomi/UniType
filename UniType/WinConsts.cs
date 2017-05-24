@@ -5,6 +5,10 @@ namespace domi1819.UniType
     {
         internal const int FALSE = 0x00;
 
+        internal const int INPUT_KEYBOARD = 0x01;
+
+        internal const int KEYEVENTF_UNICODE = 0x04;
+
         internal const int WH_KEYBOARD_LL = 0x0D;
 
         internal const int WM_NCHITTEST = 0x0084;

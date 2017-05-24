@@ -44,12 +44,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IInputMode.cs" />
     <Compile Include="InputForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="InputForm.Designer.cs">
       <DependentUpon>InputForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="InputModeKatakana.cs" />
+    <Compile Include="InputModes.cs" />
+    <Compile Include="InputModeUnicode.cs" />
     <Compile Include="KatakanaMapping.cs" />
     <Compile Include="KeyboardHook.cs" />
     <Compile Include="Program.cs" />

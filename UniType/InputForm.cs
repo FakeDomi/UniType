@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Drawing;
-using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using static domi1819.UniType.WinConsts;
@@ -12,9 +11,9 @@ namespace domi1819.UniType
         private static readonly Color BorderColor = Color.FromArgb(67, 67, 70);
 
         private readonly KeyboardHook hook = new KeyboardHook();
+        private readonly InputModes modes = new InputModes();
 
         private string inputText = string.Empty;
-        private InputMode inputMode;
 
         protected override bool ShowWithoutActivation => true;
 
@@ -109,18 +108,10 @@ namespace domi1819.UniType
 
         private void ProcessAddKey()
         {
-            if (this.inputMode == InputMode.Unicode)
-            {
-                this.inputMode = InputMode.Katakana;
-                this.modeLabel.Text = @"Ka";
-            }
-            else if (this.inputMode == InputMode.Katakana)
-            {
-                this.inputMode = InputMode.Unicode;
-                this.modeLabel.Text = @"U+";
-            }
+            this.modes.Next();
+            this.modeLabel.Text = this.modes.Current.Text;
 
-            this.inputLabel.Text = "";
+            this.inputText = "";
             this.RefreshPreview();
         }
 
@@ -145,22 +136,15 @@ namespace domi1819.UniType
 
         private void ProcessEnterKey()
         {
+            this.hook.Active = false;
+
             try
             {
-                this.hook.Active = false;
+                Tuple<char, char?> chars = this.modes.Current.GetResult(this.inputText);
 
-                if (this.inputMode == InputMode.Unicode)
+                if (chars != null)
                 {
-                    string unicodeText = char.ConvertFromUtf32(int.Parse(this.inputText, NumberStyles.HexNumber));
-
-                    SendUnicodeChar(unicodeText[0], unicodeText.Length > 1 ? (char?)unicodeText[1] : null);
-                }
-                else if (this.inputMode == InputMode.Katakana)
-                {
-                    if (KatakanaMapping.Mapping.TryGetValue(this.inputText, out char character))
-                    {
-                        SendUnicodeChar(character);
-                    }
+                    SendUnicodeChar(chars.Item1, chars.Item2);
                 }
             }
             catch (ArgumentOutOfRangeException)
@@ -179,31 +163,21 @@ namespace domi1819.UniType
 
         private void ProcessDefaultKey(Keys key)
         {
-            int input = (int)key;
+            int scanCode = (int)key;
 
-            if (input >= 96 && input <= 105)
+            if (scanCode >= 96 && scanCode <= 105)
             {
-                input -= 48;
+                scanCode -= 48;
             }
 
-            if (input >= 65 && input <= 90)
+            if (scanCode >= 65 && scanCode <= 90)
             {
-                input += 32;
+                scanCode += 32;
             }
 
-            if (this.inputMode == InputMode.Unicode)
+            if (this.modes.Current.AcceptsKey(scanCode))
             {
-                if (input >= 48 && input <= 57 || input >= 97 && input <= 102)
-                {
-                    this.AppendInput((char)input);
-                }
-            }
-            else if (this.inputMode == InputMode.Katakana)
-            {
-                if (input >= 48 && input <= 57 || input >= 97 && input <= 122)
-                {
-                    this.AppendInput((char)input);
-                }
+                this.AppendInput((char)scanCode);
             }
         }
 
@@ -214,17 +188,7 @@ namespace domi1819.UniType
 
             try
             {
-                if (this.inputMode == InputMode.Unicode)
-                {
-                    this.previewLabel.Text = char.ConvertFromUtf32(int.Parse(this.inputText, NumberStyles.HexNumber));
-                }
-                else if (this.inputMode == InputMode.Katakana)
-                {
-                    if (KatakanaMapping.Mapping.TryGetValue(this.inputText, out char character))
-                    {
-                        this.previewLabel.Text = character.ToString();
-                    }
-                }
+                this.previewLabel.Text = this.modes.Current.GetPreview(this.inputText);
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -254,18 +218,12 @@ namespace domi1819.UniType
             }
         }
 
-        private static void SendUnicodeChar(char inputChar, char? surrogateChar = null)
+        private static void SendUnicodeChar(char inputChar, char? surrogateChar)
         {
-            User32.KeyboardInput input = new User32.KeyboardInput { Type = 1, Vk = 0, Scan = inputChar, Time = 0, Flags = 0x0004, ExtraInfo = 0 };
-            User32.KeyboardInput[] inputs = surrogateChar == null ? new[] { input } : new[] { input, new User32.KeyboardInput { Type = 1, Vk = 0, Scan = surrogateChar.Value, Time = 0, Flags = 0x0004, ExtraInfo = 0 } };
+            User32.KeyboardInput input = new User32.KeyboardInput { Type = INPUT_KEYBOARD, Scan = inputChar, Flags = KEYEVENTF_UNICODE };
+            User32.KeyboardInput[] inputs = surrogateChar == null ? new[] { input } : new[] { input, new User32.KeyboardInput { Type = INPUT_KEYBOARD, Scan = surrogateChar.Value, Flags = KEYEVENTF_UNICODE } };
 
             User32.SendInput(inputs.Length, inputs, Marshal.SizeOf(typeof(User32.KeyboardInput)));
-        }
-
-        private enum InputMode
-        {
-            Unicode,
-            Katakana
         }
     }
 }
